@@ -208,8 +208,8 @@
       
       <div class="form-group">
         <label for="tipo-registro" style="color: var(--primary);">Tipo de Operación</label>
-        <select id="tipo-registro" onchange="cambiarTipoRegistro()">
-            <option value="NUEVO">Nuevo Registro</option>
+        <select id="tipo-registro" onchange="cambiarTipoRegistro(false)">
+            <option value="NUEVO">Nuevo Registro Integral</option>
             <option value="PROMESA_EXISTENTE">Procesar Promesa Existente</option>
         </select>
       </div>
@@ -330,7 +330,7 @@
 </div>
 
 <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyLXXoiqTpO6wkMTMrE0mtspoZ4wr-1ZSciV5qWZYEG4p5E9_oJ8tsA99lVaODhZgNy/exec'; 
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyj7K0oky57sLqeRaXj64ldO2yXz8C_1Tm61pZaCA6SjAH4Of7pYAFAsuIUellpdoiY/exec'; 
 
     const USUARIOS = {
         "Contratista": { password: "contratista", role: "contratista" },
@@ -376,7 +376,7 @@
             } else if (usuarioActual.role === 'contratista') {
                 panelRegistro.classList.remove('hidden');
             }
-            cambiarTipoRegistro();
+            cambiarTipoRegistro(false);
         } else {
             mostrarMensaje("Contraseña incorrecta.", "error");
         }
@@ -407,7 +407,8 @@
     // ==========================================
     // CONTROL DE FLUJO DINÁMICO (CONTRATISTA)
     // ==========================================
-    function cambiarTipoRegistro() {
+    // MODIFICADO: Ahora recibe el parámetro "preservarMensaje" para evitar que se borre el cartel de éxito.
+    function cambiarTipoRegistro(preservarMensaje = false) {
         const tipo = document.getElementById('tipo-registro').value;
         const seccionBuscar = document.getElementById('seccion-buscar-promesa');
         const formOnt = document.getElementById('ontForm');
@@ -417,12 +418,15 @@
         document.getElementById('estado').disabled = false;
         document.getElementById('serial').style.borderColor = "var(--border)";
         document.getElementById('estado').dispatchEvent(new Event('change'));
-        divMensaje.className = "hidden";
+        
+        // Si no se pide explícitamente preservarlo, se limpia el mensaje anterior
+        if (!preservarMensaje) {
+            divMensaje.className = "hidden";
+        }
 
-        // Ahora evalúa correctamente la propiedad "NUEVO"
         if (tipo === 'NUEVO') {
             seccionBuscar.classList.add('hidden');
-            formOnt.classList.remove('hidden'); // Abre el formulario de forma directa
+            formOnt.classList.remove('hidden'); 
             document.getElementById('abonado').readOnly = false;
             document.getElementById('contrato').readOnly = false;
         } else {
@@ -621,7 +625,6 @@
         seccionSi.classList.add('hidden');
         seccionNo.classList.add('hidden');
         seccionPromesa.classList.add('hidden');
-        divMensaje.className = "hidden";
         
         if (valor === 'SI') {
             seccionSi.classList.remove('hidden');
@@ -708,12 +711,16 @@
             const resultado = await respuesta.json();
 
             if(resultado.status === 'exito') {
-                mostrarMensaje(modoForm === 'PROMESA_EXISTENTE' ? "¡ONT asociada a la promesa exitosamente! (El estado continúa como Promesa de Entrega)" : "¡Registro inicial guardado exitosamente!", "success");
+                // MODIFICADO: Mensaje personalizado e inequívoco de guardado correcto.
+                mostrarMensaje("¡Registro guardado de manera exitosa!", "success");
+                
                 this.reset();
                 this.removeAttribute('data-modo');
                 document.getElementById('estado').disabled = false;
                 document.getElementById('tipo-registro').value = "NUEVO";
-                cambiarTipoRegistro();
+                
+                // MODIFICADO: Le pasamos 'true' para indicar que conserve el banner del mensaje intacto.
+                cambiarTipoRegistro(true);
             } else {
                 mostrarMensaje(resultado.mensaje || "Ocurrió un fallo de almacenamiento en la nube.", "error");
             }
