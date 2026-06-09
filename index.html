@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Recuperación de ONTs</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-dark: #2c3e50; 
+      --surface: #34495e; 
+      --primary: #00f2fe;
+      --primary-glow: rgba(0, 242, 254, 0.4);
+      --secondary: #4facfe;
+      --text: #ecf0f1;
+      --border: #465c71;
+      --error: #ff6b6b;
+      --success: #20c997;
+      --warning: #fbc531;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 50%, rgba(0, 242, 254, 0.08), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(79, 172, 254, 0.08), transparent 25%);
+      color: var(--text);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .logo-container { width: 100%; text-align: center; margin-bottom: 20px; margin-top: 10px; }
+    .logo-container img { width: 100%; max-width: 240px; height: auto; filter: drop-shadow(0 0 10px rgba(255,255,255,0.1)); }
+
+    .container { width: 100%; max-width: 600px; }
+
+    .card {
+      background: var(--surface);
+      padding: 30px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--secondary), var(--primary));
+      box-shadow: 0 0 10px var(--primary);
+    }
+
+    h2 { color: var(--primary); margin-bottom: 20px; font-size: 22px; text-shadow: 0 0 5px rgba(0,0,0,0.3); text-align: center; }
+    h3 { color: var(--text); font-size: 16px; margin-bottom: 15px; margin-top: 25px; border-left: 3px solid var(--secondary); padding-left: 8px; }
+    
+    .hidden { display: none !important; }
+    
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; letter-spacing: 0.5px; color: #b0bec5; }
+    
+    input[type="text"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
+      width: 100%; padding: 12px; background-color: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border); color: #fff; border-radius: 6px; font-family: inherit; font-size: 15px; transition: all 0.3s ease;
+    }
+
+    input:read-only { background-color: rgba(0, 0, 0, 0.25); color: #a0aab0; border-color: #2c3e50; cursor: not-allowed; }
+
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 8px var(--primary-glow); background-color: rgba(255, 255, 255, 0.12); }
+    select option { background-color: #34495e; color: #ffffff; }
+
+    .input-group { display: flex; gap: 10px; }
+    .input-group input { flex-grow: 1; }
+    
+    button {
+      background: linear-gradient(90deg, var(--secondary), var(--primary));
+      color: #000; border: none; padding: 14px 20px; border-radius: 6px; cursor: pointer;
+      font-size: 15px; font-weight: bold; width: 100%; transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px var(--primary-glow); margin-top: 10px;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5); }
+    button:disabled { background: #5a6c7d !important; color: #b0bec5 !important; box-shadow: none !important; cursor: not-allowed; transform: none !important; }
+
+    .btn-danger { background: linear-gradient(90deg, #ff416c, #ff4b2b); box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4); margin-bottom: 20px; color: white;}
+    .btn-danger:hover { box-shadow: 0 6px 20px rgba(255, 75, 43, 0.6); }
+    .btn-success { background: linear-gradient(90deg, #11998e, #38ef7d); box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4); color: black;}
+
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;}
+    .user-badge { background: rgba(0, 242, 254, 0.1); border: 1px solid var(--primary); padding: 5px 15px; border-radius: 20px; font-size: 13px; color: var(--primary); font-weight: bold;}
+
+    #mensaje { text-align: center; font-weight: bold; margin-bottom: 20px; padding: 12px; border-radius: 6px; display: none; font-size: 14px; }
+    .success { background: rgba(32, 201, 151, 0.1); color: var(--success); border: 1px solid var(--success); display: block !important; }
+    .error { background: rgba(255, 107, 107, 0.1); color: var(--error); border: 1px solid var(--error); display: block !important; }
+    .warning { background: rgba(251, 197, 49, 0.1); color: var(--warning); border: 1px solid var(--warning); display: block !important; }
+
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+      .card { padding: 20px 15px; border-radius: 8px; }
+      h2 { font-size: 19px; }
+      .input-group { flex-direction: column; }
+      .input-group button { width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="logo-container">
+  <img src="https://i.ibb.co/kgpG36nw/Logo-Net-Uno-RIF.png" alt="Logo-Net-Uno">
+</div>
+
+<div class="container">
+  
+  <div id="mensaje"></div>
+
+  <div id="panel-login" class="card">
+    <h2>Inicio de Sesión</h2>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="username">Usuario / Rol</label>
+        <select id="username" required>
+            <option value="" disabled selected>Seleccione su usuario...</option>
+            <option value="Contratista">Contratista</option>
+            <option value="Operaciones">Operaciones</option>
+            <option value="Administrador">Administrador</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" required placeholder="Ingrese su contraseña">
+      </div>
+      <button type="submit">Ingresar</button>
+    </form>
+  </div>
+
+  <div id="app-container" class="hidden">
+    
+    <div class="header-bar">
+        <div class="user-badge" id="user-info">Rol: N/A</div>
+        <button id="btn-logout" class="btn-danger" style="width: auto; margin: 0; padding: 8px 15px;">Salir</button>
+    </div>
+
+    <div id="panel-admin" class="card hidden">
+      <h2>Panel de Administración</h2>
+      <button id="btn-descargar" class="btn-success" onclick="descargarReporte()">Descargar Reporte Completo (Excel/CSV)</button>
+    </div>
+
+    <div id="panel-operaciones" class="card hidden">
+      <h2>Módulo de Operaciones</h2>
+      <h3>Actualizar Diagnóstico de Equipo</h3>
+      
+      <div class="form-group">
+        <label for="op-serial">Buscar Serial de ONT</label>
+        <div class="input-group">
+            <input type="text" id="op-serial" placeholder="Ej: 48575443123456" oninput="this.value = this.value.toUpperCase().replace(/\s/g, '')">
+            <button type="button" id="btn-buscar-op" style="width: 120px;" onclick="buscarEquipoOperaciones()">Buscar</button>
+        </div>
+      </div>
+
+      <div id="form-actualizar-status" class="hidden">
+        <div class="form-group">
+            <label for="op-status">Status de la ONT</label>
+            <select id="op-status" required>
+                <option value="" disabled selected>Seleccione status...</option>
+                <option value="BUENO">BUENO</option>
+                <option value="MALO">MALO</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="op-potencia">Potencia de la ONT (dBm)</label>
+            <input type="text" id="op-potencia" placeholder="Ej: -22.5">
+        </div>
+
+        <div class="form-group">
+            <label for="op-caja">¿Posee Caja?</label>
+            <select id="op-caja" required>
+                <option value="" disabled selected>Seleccione...</option>
+                <option value="SI">SI</option>
+                <option value="NO">NO</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="op-fuente">¿Posee Fuente de Poder?</label>
+            <select id="op-fuente" required>
+                <option value="" disabled selected>Seleccione...</option>
+                <option value="SI">SI</option>
+                <option value="NO">NO</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="op-observacion">Observaciones del Estatus</label>
+            <textarea id="op-observacion" placeholder="Detalle técnico adicional para Observación_op..."></textarea>
+        </div>
+        <button type="button" id="btn-actualizar-op" onclick="actualizarStatusOperaciones()">Actualizar Registro en Sheet</button>
+      </div>
+    </div>
+
+    <div id="panel-registro" class="card hidden">
+      <h2>Registro de Recuperación</h2>
+      
+      <div class="form-group">
+        <label for="tipo-registro" style="color: var(--primary);">Tipo de Operación</label>
+        <select id="tipo-registro" onchange="cambiarTipoRegistro()">
+            <option value="NUEVO">Nuevo Registro</option>
+            <option value="PROMESA_EXISTENTE">Procesar Promesa Existente</option>
+        </select>
+      </div>
+
+      <div id="seccion-buscar-promesa" class="form-group hidden">
+        <label for="buscar-promesa-input">Buscar por Nº Abonado o Contrato en Promesa</label>
+        <div class="input-group">
+            <input type="text" id="buscar-promesa-input" placeholder="Ej: 12345678 o 909090">
+            <button type="button" id="btn-buscar-promesa" style="width: 120px;" onclick="buscarPromesaExistente()">Buscar</button>
+        </div>
+      </div>
+
+      <form id="ontForm">
+        <h3>Datos del Cliente</h3>
+        <div class="form-group">
+          <label for="abonado">Número de Abonado</label>
+          <input type="number" id="abonado" required placeholder="Ej: 12345678">
+        </div>
+        <div class="form-group">
+          <label for="contrato">Número de Contrato</label>
+          <input type="text" id="contrato" required placeholder="Ej: 909090" oninput="this.value = this.value.toUpperCase()">
+        </div>
+
+        <h3>Detalles de la Recuperación</h3>
+        <div class="form-group">
+          <label for="contratista">Recuperado Por:</label>
+          <select id="contratista" required>
+              <option value="" disabled selected>Seleccione Contratista...</option>
+              <option value="INVERSIONES MAYO">INVERSIONES MAYO</option>
+              <option value="SERVICIOS APACHE TECNOLOGY CA">SERVICIOS APACHE TECNOLOGY CA</option>
+              <option value="TELNETWORK">TELNETWORK</option>
+              <option value="4TECH">4TECH</option>
+              <option value="CONEXSAL">CONEXSAL C.A</option>
+              <option value="INVERSIONES SUMISERVICE C.A">INVERSIONES SUMISERVICE C.A</option>
+              <option value="GRUB TECHNOLOGY">GRUB TECHNOLOGY</option>
+              <option value="I.Y TECNISERVICIOS C.A">I.Y TECNISERVICIOS C.A</option>
+              <option value="INVERSIONES CYS 2014 C.A">INVERSIONES CYS 2014 C.A</option>
+              <option value="TECNISOLUCIONES">TECNISOLUCIONES</option>
+              <option value="EMPRENDIMIENTO JOSE">EMPRENDIMIENTO JOSE</option>
+              <option value="ORLANDO EZEQUIEL CALANCHE ROJAS, FP">ORLANDO EZEQUIEL CALANCHE ROJAS, FP</option>
+              <option value="PROYECTA C.A">PROYECTA C.A</option>
+              <option value="PROYECTOS Y SOLUCIONES DT C.A">PROYECTOS Y SOLUCIONES DT C.A</option>
+              <option value="TELECOMUNICACIONES J.M CORDERO FP">TELECOMUNICACIONES J.M CORDERO FP</option>
+              <option value="FIBRATEC GM C.A">FIBRATEC GM C.A</option>
+              <option value="RJC SERV 2024 C.A">RJC SERV 2024 C.A</option>
+              <option value="TELEFIBRAS C.A">TELEFIBRAS C.A</option>
+              <option value="EMM SERVICES 2024 C.A">EMM SERVICES 2024 C.A</option>
+              <option value="CONSTRUTELS J.A.V C.A">CONSTRUTELS J.A.V C.A</option>
+              <option value="NERJENOR C.A">NERJENOR C.A</option>
+              <option value="MULTISERVICIOS MJ C.A">MULTISERVICIOS M&J C.A</option>
+              <option value="DISTRIBUIDORA ZM">DISTRIBUIDORA ZM</option>
+              <option value="VALERIA">VALERIA</option>
+              <option value="MENDOZA">MENDOZA</option>
+              <option value="PEDRO CORDOVA">PEDRO CORDOVA</option>
+              <option value="ALBERTO BARBER">ALBERTO BARBER</option>
+              <option value="EMMANUEL LUGO">EMMANUEL LUGO</option>
+              <option value="ANTONI CORTEZ">ANTONI CORTEZ</option>
+              <option value="VICENTE FIGUEREDO">VICENTE FIGUEREDO</option>
+              <option value="JULIO LOPEZ">JULIO LOPEZ</option>
+              <option value="DANIEL PAEZ">DANIEL PAEZ</option>
+              <option value="EDWIN ESPINOZA">EDWIN ESPINOZA</option>
+              <option value="FRANCISCO TORRES">FRANCISCO TORRES</option>
+              <option value="JESUS CASTILLO">JESUS CASTILLO</option>
+              <option value="JORGE ACOSTA">JORGE ACOSTA</option>
+              <option value="LUIS CALDERON">LUIS CALDERON</option>
+              <option value="LUIS MORALES">LUIS MORALES</option>
+              <option value="LUIS RAMON">LUIS RAMOS</option>
+              <option value="SIMON LOPEZ">SIMON LOPEZ</option>
+              <option value="WILMER MOLINA">WILMER MOLINA</option>
+              <option value="JOHNNY MAESTRE">JOHNNY MAESTRE</option>
+              <option value="NELSON SULBARAN">NELSON SULBARAN</option>
+              <option value="LUMAR RODRIGUEZ">LUMAR RODRIGUEZ</option>
+              <option value="JOSE RAMIREZ">JOSE RAMIREZ</option>
+              <option value="ERNESTO VERA">ERNESTO VERA</option>
+              <option value="JOEL YORIS">JOEL YORIS</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="estado">¿Equipo Recuperado? / Estatus Fila</label>
+          <select id="estado" required>
+              <option value="" disabled selected>Seleccione el estado...</option>
+              <option value="SI">SÍ, RECUPERADO</option>
+              <option value="NO">NO RECUPERADO</option>
+              <option value="PROMESA DE ENTREGA">PROMESA DE ENTREGA</option>
+          </select>
+        </div>
+
+        <div id="seccion-si" class="form-group hidden">
+          <label for="serial">Serial del Equipo (Mayúsculas y sin espacios)</label>
+          <div class="input-group">
+              <input type="text" id="serial" placeholder="Ej: 48575443123456" oninput="this.value = this.value.toUpperCase().replace(/\s/g, '')">
+              <button type="button" id="btn-buscar" style="width: 120px;" onclick="verificarSerial()">Verificar</button>
+          </div>
+        </div>
+
+        <div id="seccion-no" class="form-group hidden">
+          <label for="observacion">Motivo de no recuperación</label>
+          <textarea id="observacion" placeholder="Detalle por qué no se logró recuperar el equipo..."></textarea>
+        </div>
+
+        <div id="seccion-promesa" class="hidden">
+          <div class="form-group">
+            <label for="fechaPromesa">Fecha de entrega acordada con el cliente</label>
+            <input type="date" id="fechaPromesa">
+          </div>
+          <div class="form-group">
+            <label for="observacionPromesa">Observación / Motivo de la promesa</label>
+            <textarea id="observacionPromesa" placeholder="Detalle el motivo del acuerdo o condiciones..."></textarea>
+          </div>
+        </div>
+
+        <button type="submit" id="btn-submit" disabled>Guardar Registro</button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyLXXoiqTpO6wkMTMrE0mtspoZ4wr-1ZSciV5qWZYEG4p5E9_oJ8tsA99lVaODhZgNy/exec'; 
+
+    const USUARIOS = {
+        "Contratista": { password: "contratista", role: "contratista" },
+        "Operaciones": { password: "operacionesnetuno", role: "operaciones" },
+        "Administrador": { password: "adminnetuno", role: "admin" }
+    };
+
+    let usuarioActual = null;
+
+    const divMensaje = document.getElementById('mensaje');
+    const panelLogin = document.getElementById('panel-login');
+    const appContainer = document.getElementById('app-container');
+    const userInfo = document.getElementById('user-info');
+    
+    const panelAdmin = document.getElementById('panel-admin');
+    const panelOperaciones = document.getElementById('panel-operaciones');
+    const panelRegistro = document.getElementById('panel-registro');
+
+    function mostrarMensaje(texto, tipo) {
+      divMensaje.textContent = texto;
+      divMensaje.className = tipo; 
+      window.scrollTo({ top: 0, behavior: 'smooth' }); 
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const userSelect = document.getElementById('username').value;
+        const passInput = document.getElementById('password').value.trim();
+
+        if (USUARIOS[userSelect] && USUARIOS[userSelect].password === passInput) {
+            usuarioActual = USUARIOS[userSelect];
+            panelLogin.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            userInfo.textContent = `Usuario: ${userSelect.toUpperCase()}`;
+            divMensaje.className = 'hidden';
+
+            if (usuarioActual.role === 'admin') {
+                panelAdmin.classList.remove('hidden');
+                panelOperaciones.classList.remove('hidden');
+                panelRegistro.classList.remove('hidden');
+            } else if (usuarioActual.role === 'operaciones') {
+                panelOperaciones.classList.remove('hidden');
+            } else if (usuarioActual.role === 'contratista') {
+                panelRegistro.classList.remove('hidden');
+            }
+            cambiarTipoRegistro();
+        } else {
+            mostrarMensaje("Contraseña incorrecta.", "error");
+        }
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', function() {
+        usuarioActual = null;
+        appContainer.classList.add('hidden');
+        panelLogin.classList.remove('hidden');
+        document.getElementById('loginForm').reset();
+        
+        const formOnt = document.getElementById('ontForm');
+        formOnt.reset();
+        formOnt.removeAttribute('data-modo');
+        document.getElementById('abonado').readOnly = false;
+        document.getElementById('contrato').readOnly = false;
+        document.getElementById('estado').disabled = false;
+        document.getElementById('tipo-registro').value = "NUEVO";
+        document.getElementById('seccion-buscar-promesa').classList.add('hidden');
+        formOnt.classList.remove('hidden');
+
+        divMensaje.className = 'hidden';
+        panelAdmin.classList.add('hidden');
+        panelOperaciones.classList.add('hidden');
+        panelRegistro.classList.add('hidden');
+    });
+
+    // ==========================================
+    // CONTROL DE FLUJO DINÁMICO (CONTRATISTA)
+    // ==========================================
+    function cambiarTipoRegistro() {
+        const tipo = document.getElementById('tipo-registro').value;
+        const seccionBuscar = document.getElementById('seccion-buscar-promesa');
+        const formOnt = document.getElementById('ontForm');
+        
+        formOnt.reset();
+        formOnt.removeAttribute('data-modo');
+        document.getElementById('estado').disabled = false;
+        document.getElementById('serial').style.borderColor = "var(--border)";
+        document.getElementById('estado').dispatchEvent(new Event('change'));
+        divMensaje.className = "hidden";
+
+        // Ahora evalúa correctamente la propiedad "NUEVO"
+        if (tipo === 'NUEVO') {
+            seccionBuscar.classList.add('hidden');
+            formOnt.classList.remove('hidden'); // Abre el formulario de forma directa
+            document.getElementById('abonado').readOnly = false;
+            document.getElementById('contrato').readOnly = false;
+        } else {
+            seccionBuscar.classList.remove('hidden');
+            formOnt.classList.add('hidden'); 
+        }
+    }
+
+    async function buscarPromesaExistente() {
+        const target = document.getElementById('buscar-promesa-input').value.trim();
+        const btn = document.getElementById('btn-buscar-promesa');
+        const formOnt = document.getElementById('ontForm');
+
+        if (!target) {
+            mostrarMensaje("Ingrese un número de abonado o contrato para buscar.", "error");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "...";
+        divMensaje.className = "hidden";
+        formOnt.classList.add('hidden');
+
+        try {
+            const respuesta = await fetch(`${SCRIPT_URL}?action=buscar_promesa&target=${encodeURIComponent(target)}`);
+            const resultado = await respuesta.json();
+
+            if (resultado.status === 'encontrado') {
+                mostrarMensaje("✅ Promesa activa localizada. Ingrese y verifique el serial de la ONT.", "success");
+                formOnt.classList.remove('hidden');
+                
+                document.getElementById('abonado').value = resultado.data.abonado;
+                document.getElementById('abonado').readOnly = true;
+                
+                document.getElementById('contrato').value = resultado.data.contrato;
+                document.getElementById('contrato').readOnly = true;
+                
+                document.getElementById('contratista').value = resultado.data.contratista;
+                
+                formOnt.dataset.modo = "PROMESA_EXISTENTE";
+                
+                document.getElementById('estado').value = 'PROMESA DE ENTREGA'; 
+                document.getElementById('estado').disabled = true;
+                document.getElementById('estado').dispatchEvent(new Event('change'));
+                
+            } else {
+                mostrarMensaje("❌ No se encontró ninguna promesa de entrega activa para el parámetro ingresado.", "error");
+            }
+        } catch (error) {
+            mostrarMensaje("Error al conectar con la base de datos.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Buscar";
+        }
+    }
+
+    // ==========================================
+    // JS MÓDULO OPERACIONES
+    // ==========================================
+    async function buscarEquipoOperaciones() {
+        const serial = document.getElementById('op-serial').value.trim();
+        const btnBuscar = document.getElementById('btn-buscar-op');
+        const formActualizar = document.getElementById('form-actualizar-status');
+
+        if(!serial) {
+            mostrarMensaje("Ingrese un serial para buscar.", "error");
+            return;
+        }
+
+        btnBuscar.disabled = true;
+        btnBuscar.textContent = "...";
+        formActualizar.classList.add('hidden');
+        divMensaje.className = 'hidden';
+
+        try {
+            const respuesta = await fetch(`${SCRIPT_URL}?action=buscar&serial=${encodeURIComponent(serial)}`);
+            const datos = await respuesta.json();
+
+            if (datos.recuperado) { 
+                mostrarMensaje("✅ Equipo localizado. Ingrese el diagnóstico técnico.", "success");
+                formActualizar.classList.remove('hidden');
+            } else {
+                mostrarMensaje("❌ El serial ingresado no existe o no está registrado en el sistema.", "error");
+            }
+        } catch (error) {
+            mostrarMensaje("Error enlazando con la base de datos.", "error");
+        } finally {
+            btnBuscar.disabled = false;
+            btnBuscar.textContent = "Buscar";
+        }
+    }
+
+    async function actualizarStatusOperaciones() {
+        const btnActualizar = document.getElementById('btn-actualizar-op');
+        const serial = document.getElementById('op-serial').value.trim();
+        const status = document.getElementById('op-status').value;
+        const potencia = document.getElementById('op-potencia').value.trim();
+        const caja = document.getElementById('op-caja').value;
+        const fuente = document.getElementById('op-fuente').value;
+        const observacion = document.getElementById('op-observacion').value.trim();
+
+        if(!status || !caja || !fuente) {
+            mostrarMensaje("Por favor, complete todos los campos obligatorios (*).", "warning");
+            return;
+        }
+
+        btnActualizar.disabled = true;
+        btnActualizar.textContent = "Guardando cambios...";
+
+        const payload = {
+            accion: "actualizar_status",
+            serial: serial,
+            status_equipo: status,
+            potencia: potencia,
+            posee_caja: caja,
+            posee_fuente: fuente,
+            observacion: observacion 
+        };
+
+        try {
+            const respuesta = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            const resultado = await respuesta.json();
+
+            if(resultado.status === 'exito') {
+                mostrarMensaje("¡Registro de la ONT actualizado exitosamente!", "success");
+                document.getElementById('op-status').value = "";
+                document.getElementById('op-potencia').value = "";
+                document.getElementById('op-caja').value = "";
+                document.getElementById('op-fuente').value = "";
+                document.getElementById('op-observacion').value = "";
+                document.getElementById('op-serial').value = "";
+                document.getElementById('form-actualizar-status').classList.add('hidden');
+            } else {
+                mostrarMensaje("Error del servidor al intentar actualizar.", "error");
+            }
+        } catch (error) {
+            mostrarMensaje("Error de red. No se guardaron los cambios.", "error");
+        } finally {
+            btnActualizar.disabled = false;
+            btnActualizar.textContent = "Actualizar Registro en Sheet";
+        }
+    }
+
+    // ==========================================
+    // JS MÓDULO ADMIN: DESCARGAR REPORTES
+    // ==========================================
+    async function descargarReporte() {
+        const btn = document.getElementById('btn-descargar');
+        btn.textContent = "Procesando descarga...";
+        btn.disabled = true;
+
+        try {
+            const respuesta = await fetch(`${SCRIPT_URL}?action=descargar_datos`);
+            const datosCSV = await respuesta.text();
+            const excelCSV = "\uFEFFsep=,\r\n" + datosCSV;
+
+            const blob = new Blob([excelCSV], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            
+            const fechaArchivo = new Date().toISOString().split('T')[0];
+            link.setAttribute("download", `Reporte_General_ONT_${fechaArchivo}.csv`);
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            mostrarMensaje("Descarga de reporte completada.", "success");
+        } catch (error) {
+            mostrarMensaje("Ocurrió un error al procesar el archivo CSV.", "error");
+        } finally {
+            btn.textContent = "Descargar Reporte Completo (Excel/CSV)";
+            btn.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // JS MÓDULO CARGA ORIGINAL (CONTRATISTA)
+    // ==========================================
+    const estadoSelect = document.getElementById('estado');
+    const seccionSi = document.getElementById('seccion-si');
+    const seccionNo = document.getElementById('seccion-no');
+    const seccionPromesa = document.getElementById('seccion-promesa');
+    const btnSubmit = document.getElementById('btn-submit');
+    const serialInput = document.getElementById('serial');
+
+    estadoSelect.addEventListener('change', function() {
+        const valor = this.value;
+        const modoForm = document.getElementById('ontForm').dataset.modo || "NUEVO";
+        
+        seccionSi.classList.add('hidden');
+        seccionNo.classList.add('hidden');
+        seccionPromesa.classList.add('hidden');
+        divMensaje.className = "hidden";
+        
+        if (valor === 'SI') {
+            seccionSi.classList.remove('hidden');
+            btnSubmit.disabled = true; 
+        } else if (valor === 'NO') {
+            seccionNo.classList.remove('hidden');
+            btnSubmit.disabled = false;
+        } else if (valor === 'PROMESA DE ENTREGA') {
+            seccionPromesa.classList.remove('hidden');
+            if (modoForm === 'PROMESA_EXISTENTE') {
+                seccionSi.classList.remove('hidden');
+                btnSubmit.disabled = true; 
+            } else {
+                btnSubmit.disabled = false;
+            }
+        }
+    });
+
+    async function verificarSerial() {
+        const serialVal = serialInput.value.trim();
+        const btnBuscar = document.getElementById('btn-buscar');
+
+        if(!serialVal) {
+            mostrarMensaje("Por favor, ingrese un serial válido.", "error");
+            serialInput.style.borderColor = "var(--error)";
+            return;
+        }
+
+        mostrarMensaje("Verificando existencia...", "warning");
+        btnSubmit.disabled = true;
+        btnBuscar.disabled = true;
+
+        try {
+            const respuesta = await fetch(`${SCRIPT_URL}?action=buscar&serial=${encodeURIComponent(serialVal)}`);
+            const datos = await respuesta.json();
+
+            if (datos.recuperado) {
+                mostrarMensaje("❌ Bloqueado: Este equipo YA se encuentra registrado en el sistema.", "error");
+                serialInput.style.borderColor = "var(--error)";
+            } else {
+                mostrarMensaje("✅ Serial verificado. El equipo está libre para asignación.", "success");
+                serialInput.style.borderColor = "var(--success)";
+                btnSubmit.disabled = false;
+            }
+        } catch (error) {
+            mostrarMensaje("Error de comunicación de red al verificar.", "error");
+        } finally {
+            btnBuscar.disabled = false;
+        }
+    }
+
+    document.getElementById('ontForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = "Enviando datos...";
+
+        const estadoVal = estadoSelect.value;
+        const modoForm = this.dataset.modo || "NUEVO";
+        
+        let obsSeleccionada = "";
+        if (estadoVal === 'NO') {
+            obsSeleccionada = document.getElementById('observacion').value.trim();
+        } else if (estadoVal === 'PROMESA DE ENTREGA') {
+            obsSeleccionada = document.getElementById('observacionPromesa').value.trim();
+        }
+
+        const payload = {
+            accion: modoForm === 'PROMESA_EXISTENTE' ? "actualizar_promesa" : "nuevo_registro",
+            abonado: document.getElementById('abonado').value.trim(),
+            contrato: document.getElementById('contrato').value.trim(),
+            contratista: document.getElementById('contratista').value,
+            estado: estadoVal,
+            serial: (estadoVal === 'SI' || modoForm === 'PROMESA_EXISTENTE') ? serialInput.value.trim() : "",
+            observacion: obsSeleccionada,
+            fechaPromesa: estadoVal === 'PROMESA DE ENTREGA' ? document.getElementById('fechaPromesa').value : ""
+        };
+
+        try {
+            const respuesta = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            const resultado = await respuesta.json();
+
+            if(resultado.status === 'exito') {
+                mostrarMensaje(modoForm === 'PROMESA_EXISTENTE' ? "¡ONT asociada a la promesa exitosamente! (El estado continúa como Promesa de Entrega)" : "¡Registro inicial guardado exitosamente!", "success");
+                this.reset();
+                this.removeAttribute('data-modo');
+                document.getElementById('estado').disabled = false;
+                document.getElementById('tipo-registro').value = "NUEVO";
+                cambiarTipoRegistro();
+            } else {
+                mostrarMensaje(resultado.mensaje || "Ocurrió un fallo de almacenamiento en la nube.", "error");
+            }
+        } catch (error) {
+            mostrarMensaje("Error físico de red. Comprueba tu señal.", "error");
+        } finally {
+            btnSubmit.textContent = "Guardar Registro";
+            btnSubmit.disabled = !estadoSelect.value;
+        }
+    });
+</script>
+
+</body>
+</html>
