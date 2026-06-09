@@ -173,6 +173,15 @@
         </div>
 
         <div class="form-group">
+            <label for="op-modelo">Modelo del Equipo</label>
+            <select id="op-modelo" required>
+                <option value="" disabled selected>Seleccione modelo...</option>
+                <option value="C/W">C/W</option>
+                <option value="S/W">S/W</option>
+            </select>
+        </div>
+
+        <div class="form-group">
             <label for="op-potencia">Potencia de la ONT (dBm)</label>
             <input type="text" id="op-potencia" placeholder="Ej: -22.5">
         </div>
@@ -292,8 +301,8 @@
           <label for="estado">¿Equipo Recuperado? / Estatus Fila</label>
           <select id="estado" required>
               <option value="" disabled selected>Seleccione el estado...</option>
-              <option value="SI">SÍ, RECUPERADO</option>
-              <option value="NO">NO RECUPERADO</option>
+              <option value="SI, RECUPERADO">SÍ, RECUPERADO</option>
+              <option value="NO RECUPERADO">NO RECUPERADO</option>
               <option value="PROMESA DE ENTREGA">PROMESA DE ENTREGA</option>
           </select>
         </div>
@@ -330,7 +339,7 @@
 </div>
 
 <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyj7K0oky57sLqeRaXj64ldO2yXz8C_1Tm61pZaCA6SjAH4Of7pYAFAsuIUellpdoiY/exec'; 
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx8lyjX3i_0UgegcGqrG7JUEr_UkC2V2hEdluKsYSo4I0rlovxZu6rfXoyAdNgXGilM/exec'; 
 
     const USUARIOS = {
         "Contratista": { password: "contratista", role: "contratista" },
@@ -404,10 +413,6 @@
         panelRegistro.classList.add('hidden');
     });
 
-    // ==========================================
-    // CONTROL DE FLUJO DINÁMICO (CONTRATISTA)
-    // ==========================================
-    // MODIFICADO: Ahora recibe el parámetro "preservarMensaje" para evitar que se borre el cartel de éxito.
     function cambiarTipoRegistro(preservarMensaje = false) {
         const tipo = document.getElementById('tipo-registro').value;
         const seccionBuscar = document.getElementById('seccion-buscar-promesa');
@@ -419,7 +424,6 @@
         document.getElementById('serial').style.borderColor = "var(--border)";
         document.getElementById('estado').dispatchEvent(new Event('change'));
         
-        // Si no se pide explícitamente preservarlo, se limpia el mensaje anterior
         if (!preservarMensaje) {
             divMensaje.className = "hidden";
         }
@@ -483,9 +487,6 @@
         }
     }
 
-    // ==========================================
-    // JS MÓDULO OPERACIONES
-    // ==========================================
     async function buscarEquipoOperaciones() {
         const serial = document.getElementById('op-serial').value.trim();
         const btnBuscar = document.getElementById('btn-buscar-op');
@@ -523,12 +524,13 @@
         const btnActualizar = document.getElementById('btn-actualizar-op');
         const serial = document.getElementById('op-serial').value.trim();
         const status = document.getElementById('op-status').value;
+        const modelo = document.getElementById('op-modelo').value; 
         const potencia = document.getElementById('op-potencia').value.trim();
         const caja = document.getElementById('op-caja').value;
         const fuente = document.getElementById('op-fuente').value;
         const observacion = document.getElementById('op-observacion').value.trim();
 
-        if(!status || !caja || !fuente) {
+        if(!status || !modelo || !caja || !fuente) {
             mostrarMensaje("Por favor, complete todos los campos obligatorios (*).", "warning");
             return;
         }
@@ -540,6 +542,7 @@
             accion: "actualizar_status",
             serial: serial,
             status_equipo: status,
+            modelo: modelo, 
             potencia: potencia,
             posee_caja: caja,
             posee_fuente: fuente,
@@ -557,6 +560,7 @@
             if(resultado.status === 'exito') {
                 mostrarMensaje("¡Registro de la ONT actualizado exitosamente!", "success");
                 document.getElementById('op-status').value = "";
+                document.getElementById('op-modelo').value = ""; 
                 document.getElementById('op-potencia').value = "";
                 document.getElementById('op-caja').value = "";
                 document.getElementById('op-fuente').value = "";
@@ -574,9 +578,6 @@
         }
     }
 
-    // ==========================================
-    // JS MÓDULO ADMIN: DESCARGAR REPORTES
-    // ==========================================
     async function descargarReporte() {
         const btn = document.getElementById('btn-descargar');
         btn.textContent = "Procesando descarga...";
@@ -608,9 +609,6 @@
         }
     }
 
-    // ==========================================
-    // JS MÓDULO CARGA ORIGINAL (CONTRATISTA)
-    // ==========================================
     const estadoSelect = document.getElementById('estado');
     const seccionSi = document.getElementById('seccion-si');
     const seccionNo = document.getElementById('seccion-no');
@@ -618,6 +616,7 @@
     const btnSubmit = document.getElementById('btn-submit');
     const serialInput = document.getElementById('serial');
 
+    // CORREGIDA LA EVALUACIÓN DE LAS OPCIONES DE ESTADO
     estadoSelect.addEventListener('change', function() {
         const valor = this.value;
         const modoForm = document.getElementById('ontForm').dataset.modo || "NUEVO";
@@ -626,10 +625,10 @@
         seccionNo.classList.add('hidden');
         seccionPromesa.classList.add('hidden');
         
-        if (valor === 'SI') {
+        if (valor === 'SI, RECUPERADO') {
             seccionSi.classList.remove('hidden');
             btnSubmit.disabled = true; 
-        } else if (valor === 'NO') {
+        } else if (valor === 'NO RECUPERADO') {
             seccionNo.classList.remove('hidden');
             btnSubmit.disabled = false;
         } else if (valor === 'PROMESA DE ENTREGA') {
@@ -685,19 +684,20 @@
         const modoForm = this.dataset.modo || "NUEVO";
         
         let obsSeleccionada = "";
-        if (estadoVal === 'NO') {
+        if (estadoVal === 'NO RECUPERADO') {
             obsSeleccionada = document.getElementById('observacion').value.trim();
         } else if (estadoVal === 'PROMESA DE ENTREGA') {
             obsSeleccionada = document.getElementById('observacionPromesa').value.trim();
         }
 
+        // CORREGIDO ENVÍO DE DATOS
         const payload = {
             accion: modoForm === 'PROMESA_EXISTENTE' ? "actualizar_promesa" : "nuevo_registro",
             abonado: document.getElementById('abonado').value.trim(),
             contrato: document.getElementById('contrato').value.trim(),
             contratista: document.getElementById('contratista').value,
             estado: estadoVal,
-            serial: (estadoVal === 'SI' || modoForm === 'PROMESA_EXISTENTE') ? serialInput.value.trim() : "",
+            serial: (estadoVal === 'SI, RECUPERADO' || modoForm === 'PROMESA_EXISTENTE') ? serialInput.value.trim() : "",
             observacion: obsSeleccionada,
             fechaPromesa: estadoVal === 'PROMESA DE ENTREGA' ? document.getElementById('fechaPromesa').value : ""
         };
@@ -711,15 +711,11 @@
             const resultado = await respuesta.json();
 
             if(resultado.status === 'exito') {
-                // MODIFICADO: Mensaje personalizado e inequívoco de guardado correcto.
                 mostrarMensaje("¡Registro guardado de manera exitosa!", "success");
-                
                 this.reset();
                 this.removeAttribute('data-modo');
                 document.getElementById('estado').disabled = false;
                 document.getElementById('tipo-registro').value = "NUEVO";
-                
-                // MODIFICADO: Le pasamos 'true' para indicar que conserve el banner del mensaje intacto.
                 cambiarTipoRegistro(true);
             } else {
                 mostrarMensaje(resultado.mensaje || "Ocurrió un fallo de almacenamiento en la nube.", "error");
