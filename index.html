@@ -298,6 +298,21 @@
         </div>
 
         <div class="form-group">
+          <label for="operadora">Operadora:</label>
+          <select id="operadora" required>
+              <option value="" disabled selected>Seleccione la Operadora...</option>
+              <option value="Maracay">Maracay</option>
+              <option value="La Morita">La Morita</option>
+              <option value="Turmero">Turmero</option>
+              <option value="Palo Negro">Palo Negro</option>
+              <option value="Samanes">Samanes</option>
+              <option value="La Victoria">La Victoria</option>
+              <option value="Colonia Tovar">Colonia Tovar</option>
+              <option value="Tejerias">Tejerias</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label for="estado">¿Equipo Recuperado? / Estatus Fila</label>
           <select id="estado" required>
               <option value="" disabled selected>Seleccione el estado...</option>
@@ -339,7 +354,7 @@
 </div>
 
 <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx8lyjX3i_0UgegcGqrG7JUEr_UkC2V2hEdluKsYSo4I0rlovxZu6rfXoyAdNgXGilM/exec'; 
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCiseJoIBYEumMmHfvaJ_p2BEQC91IaCpp3b6HzPCBUNXjw0dpVvS1q7DQMmzJbuHL/exec'; 
 
     const USUARIOS = {
         "Contratista": { password: "contratista", role: "contratista" },
@@ -469,6 +484,10 @@
                 document.getElementById('contrato').readOnly = true;
                 
                 document.getElementById('contratista').value = resultado.data.contratista;
+                
+                if (resultado.data.operadora) {
+                    document.getElementById('operadora').value = resultado.data.operadora;
+                }
                 
                 formOnt.dataset.modo = "PROMESA_EXISTENTE";
                 
@@ -616,7 +635,6 @@
     const btnSubmit = document.getElementById('btn-submit');
     const serialInput = document.getElementById('serial');
 
-    // CORREGIDA LA EVALUACIÓN DE LAS OPCIONES DE ESTADO
     estadoSelect.addEventListener('change', function() {
         const valor = this.value;
         const modoForm = document.getElementById('ontForm').dataset.modo || "NUEVO";
@@ -690,12 +708,12 @@
             obsSeleccionada = document.getElementById('observacionPromesa').value.trim();
         }
 
-        // CORREGIDO ENVÍO DE DATOS
         const payload = {
             accion: modoForm === 'PROMESA_EXISTENTE' ? "actualizar_promesa" : "nuevo_registro",
             abonado: document.getElementById('abonado').value.trim(),
             contrato: document.getElementById('contrato').value.trim(),
             contratista: document.getElementById('contratista').value,
+            operadora: document.getElementById('operadora').value,
             estado: estadoVal,
             serial: (estadoVal === 'SI, RECUPERADO' || modoForm === 'PROMESA_EXISTENTE') ? serialInput.value.trim() : "",
             observacion: obsSeleccionada,
