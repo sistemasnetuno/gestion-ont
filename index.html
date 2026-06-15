@@ -126,6 +126,7 @@
         <select id="username" required>
             <option value="" disabled selected>Seleccione su usuario...</option>
             <option value="Contratista">Contratista</option>
+            <option value="SAC">SAC</option>
             <option value="Operaciones">Operaciones</option>
             <option value="Administrador">Administrador</option>
         </select>
@@ -243,9 +244,9 @@
         </div>
 
         <h3>Detalles de la Recuperación</h3>
-        <div class="form-group">
+        <div class="form-group" id="grupo-contratista">
           <label for="contratista">Recuperado Por:</label>
-          <select id="contratista" required>
+          <select id="contratista">
               <option value="" disabled selected>Seleccione Contratista...</option>
               <option value="INVERSIONES MAYO">INVERSIONES MAYO</option>
               <option value="SERVICIOS APACHE TECNOLOGY CA">SERVICIOS APACHE TECNOLOGY CA</option>
@@ -354,10 +355,12 @@
 </div>
 
 <script>
+    // IMPORTANTE: Pega aquí la URL de tu App Script Desplegada
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCiseJoIBYEumMmHfvaJ_p2BEQC91IaCpp3b6HzPCBUNXjw0dpVvS1q7DQMmzJbuHL/exec'; 
 
     const USUARIOS = {
         "Contratista": { password: "contratista", role: "contratista" },
+        "SAC": { password: "sacnetuno", role: "contratista" },
         "Operaciones": { password: "operacionesnetuno", role: "operaciones" },
         "Administrador": { password: "adminnetuno", role: "admin" }
     };
@@ -386,10 +389,22 @@
 
         if (USUARIOS[userSelect] && USUARIOS[userSelect].password === passInput) {
             usuarioActual = USUARIOS[userSelect];
+            usuarioActual.id = userSelect; 
+
             panelLogin.classList.add('hidden');
             appContainer.classList.remove('hidden');
             userInfo.textContent = `Usuario: ${userSelect.toUpperCase()}`;
             divMensaje.className = 'hidden';
+
+            const grupoContratista = document.getElementById('grupo-contratista');
+            const inputContratista = document.getElementById('contratista');
+            if (usuarioActual.id === 'SAC') {
+                grupoContratista.classList.add('hidden');
+                inputContratista.removeAttribute('required'); 
+            } else {
+                grupoContratista.classList.remove('hidden');
+                inputContratista.setAttribute('required', 'true');
+            }
 
             if (usuarioActual.role === 'admin') {
                 panelAdmin.classList.remove('hidden');
@@ -420,6 +435,7 @@
         document.getElementById('estado').disabled = false;
         document.getElementById('tipo-registro').value = "NUEVO";
         document.getElementById('seccion-buscar-promesa').classList.add('hidden');
+        document.getElementById('grupo-contratista').classList.remove('hidden'); 
         formOnt.classList.remove('hidden');
 
         divMensaje.className = 'hidden';
@@ -483,7 +499,9 @@
                 document.getElementById('contrato').value = resultado.data.contrato;
                 document.getElementById('contrato').readOnly = true;
                 
-                document.getElementById('contratista').value = resultado.data.contratista;
+                if (usuarioActual.id !== 'SAC') {
+                    document.getElementById('contratista').value = resultado.data.contratista;
+                }
                 
                 if (resultado.data.operadora) {
                     document.getElementById('operadora').value = resultado.data.operadora;
@@ -708,11 +726,13 @@
             obsSeleccionada = document.getElementById('observacionPromesa').value.trim();
         }
 
+        const valorContratista = usuarioActual.id === 'SAC' ? 'SAC' : document.getElementById('contratista').value;
+
         const payload = {
             accion: modoForm === 'PROMESA_EXISTENTE' ? "actualizar_promesa" : "nuevo_registro",
             abonado: document.getElementById('abonado').value.trim(),
             contrato: document.getElementById('contrato').value.trim(),
-            contratista: document.getElementById('contratista').value,
+            contratista: valorContratista,
             operadora: document.getElementById('operadora').value,
             estado: estadoVal,
             serial: (estadoVal === 'SI, RECUPERADO' || modoForm === 'PROMESA_EXISTENTE') ? serialInput.value.trim() : "",
