@@ -616,31 +616,83 @@
         }
     }
 
+    // Pide datos al Apps Script y garantiza que la respuesta sea JSON.
+    // Si Google devuelve una página HTML, el error indica qué página llegó para poder diagnosticarlo.
+    async function pedirJSON(params) {
+        const respuesta = await fetch(`${SCRIPT_URL}?${params}&t=${Date.now()}`);
+        const texto = (await respuesta.text()).trim();
+
+        if (/^<(!doctype|html)/i.test(texto)) {
+            const titulo = (texto.match(/<title>([^<]*)<\/title>/i) || [])[1] || "sin título";
+            const detalle = texto.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, " ")
+                                 .replace(/\s+/g, " ").trim().slice(0, 200);
+            throw new Error(`Google devolvió una página HTML (HTTP ${respuesta.status}) en lugar de datos. Título: "${titulo}". Contenido: "${detalle}"`);
+        }
+
+        let json;
+        try { json = JSON.parse(texto); } catch (e) {
+            throw new Error("Respuesta no válida del servidor: " + texto.slice(0, 120));
+        }
+        if (json.status === "error") throw new Error(json.mensaje || "Error del servidor.");
+        return json;
+    }
+
+    // Convierte una matriz de filas en texto CSV (escapando comillas, comas y saltos de línea)
+    function filasACSV(filas) {
+        return filas.map(function(fila) {
+            return fila.map(function(celda) {
+                let texto = (celda === null || celda === undefined) ? "" : String(celda);
+                texto = texto.replace(/"/g, '""');
+                return /[",\r\n]/.test(texto) ? '"' + texto + '"' : texto;
+            }).join(",");
+        }).join("\r\n");
+    }
+
     async function descargarReporte() {
         const btn = document.getElementById('btn-descargar');
         btn.textContent = "Procesando descarga...";
         btn.disabled = true;
 
         try {
-            const respuesta = await fetch(`${SCRIPT_URL}?action=descargar_datos`);
-            const datosCSV = await respuesta.text();
-            const excelCSV = "\uFEFFsep=,\r\n" + datosCSV;
+            // 1) Verifica que el script publicado sea la versión nueva y cuántas filas hay
+            const info = await pedirJSON("action=ping");
+            const total = info.totalFilas || 0;
+            if (total < 1) throw new Error("La hoja no tiene datos.");
 
+            // 2) Descarga por bloques para evitar respuestas demasiado grandes
+            const bloque = 1000;
+            let filas = [];
+            for (let desde = 1; desde <= total; desde += bloque) {
+                btn.textContent = `Procesando descarga... ${Math.min(desde + bloque - 1, total)}/${total}`;
+                const parte = await pedirJSON(`action=descargar_datos&desde=${desde}&cantidad=${bloque}`);
+                filas = filas.concat(parte.filas);
+            }
+
+            // 3) Arma y descarga el CSV
+            const excelCSV = "\uFEFFsep=,\r\n" + filasACSV(filas);
             const blob = new Blob([excelCSV], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            
+
             const fechaArchivo = new Date().toISOString().split('T')[0];
             link.setAttribute("download", `Reporte_General_ONT_${fechaArchivo}.csv`);
-            
+
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 
-            mostrarMensaje("Descarga de reporte completada.", "success");
+            mostrarMensaje("Descarga de reporte completada (" + (filas.length - 1) + " registros).", "success");
         } catch (error) {
-            mostrarMensaje("Ocurrió un error al procesar el archivo CSV.", "error");
+            console.error("Error al descargar el reporte:", error);
+            let detalle = error.message;
+            if (/Acción inválida/i.test(detalle)) {
+                detalle = "El Apps Script publicado es una versión antigua. Pega el script.txt nuevo y publica una Nueva versión.";
+            } else if (/Failed to fetch|NetworkError/i.test(detalle)) {
+                detalle = "No hay conexión con el Apps Script. Revisa SCRIPT_URL y que el acceso sea 'Cualquier persona'.";
+            }
+            mostrarMensaje("No se pudo generar el reporte: " + detalle, "error");
         } finally {
             btn.textContent = "Descargar Reporte Completo (Excel/CSV)";
             btn.disabled = false;
