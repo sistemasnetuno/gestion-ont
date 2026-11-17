@@ -358,7 +358,7 @@
 
 <script>
     // IMPORTANTE: Pega aquí la URL de tu App Script Desplegada
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7emfk0KmWcxyIiXJCXjpXquDYrXODFqJZmgaLQFDbCvtn9Xpa9YNjTiFBqVxwjcnD/exec'; 
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZw25NXxmwN12PkmUlZ8Mbaq14x2sgBdh0J3-mZPx0IcqHQuus3nAGG-EObSIR5yDE/exec'; 
 
     const USUARIOS = {
         "Contratista": { password: "contratista", role: "contratista" },
@@ -707,6 +707,16 @@
     const btnSubmit = document.getElementById('btn-submit');
     const serialInput = document.getElementById('serial');
 
+    // Si cambia el serial o el abonado, se exige verificar de nuevo
+    ['serial', 'abonado'].forEach(function(id) {
+        document.getElementById(id).addEventListener('input', function() {
+            if (!seccionSi.classList.contains('hidden')) {
+                btnSubmit.disabled = true;
+                serialInput.style.borderColor = "";
+            }
+        });
+    });
+
     estadoSelect.addEventListener('change', function() {
         const valor = this.value;
         const modoForm = document.getElementById('ontForm').dataset.modo || "NUEVO";
@@ -742,19 +752,25 @@
             return;
         }
 
+        const abonadoVal = document.getElementById('abonado').value.trim();
+        if(!abonadoVal) {
+            mostrarMensaje("Ingrese primero el número de abonado: el serial se valida junto con el abonado.", "error");
+            return;
+        }
+
         mostrarMensaje("Verificando existencia...", "warning");
         btnSubmit.disabled = true;
         btnBuscar.disabled = true;
 
         try {
-            const respuesta = await fetch(`${SCRIPT_URL}?action=buscar&serial=${encodeURIComponent(serialVal)}`);
+            const respuesta = await fetch(`${SCRIPT_URL}?action=buscar&serial=${encodeURIComponent(serialVal)}&abonado=${encodeURIComponent(abonadoVal)}`);
             const datos = await respuesta.json();
 
             if (datos.recuperado) {
-                mostrarMensaje("❌ Bloqueado: Este equipo YA se encuentra registrado en el sistema.", "error");
+                mostrarMensaje("❌ Bloqueado: este serial YA está registrado para este mismo abonado.", "error");
                 serialInput.style.borderColor = "var(--error)";
             } else {
-                mostrarMensaje("✅ Serial verificado. El equipo está libre para asignación.", "success");
+                mostrarMensaje("✅ Serial verificado para este abonado. Puede guardar el registro.", "success");
                 serialInput.style.borderColor = "var(--success)";
                 btnSubmit.disabled = false;
             }
